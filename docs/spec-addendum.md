@@ -138,11 +138,14 @@ All P0 requirements remain in the project plan. Priority does not imply they all
 | Requirement | Triage | Effort | Reason / treatment |
 |---|---|---:|---|
 | Distinctive professional non-template visual system | **MVP-now; preserve Phase 1** | S | Existing shell already uses a product-specific green/stone treatment; document and keep coherent rather than rewrite. |
-| Color tokens | **MVP-now documentation** | S | Forest `#244B3E`, deep forest `#19382F`, canvas `#F4F4EF`, paper `#FBFBF8`, ink `#242D2A`, muted text `#66716B`, moss `#A4B99E`; semantic states require text/icon and contrast checks. |
-| One font pairing | **MVP-now documentation** | S | Aptos/Segoe UI system sans for UI and local Georgia/Baskerville-style serif accents; no external font dependency. |
-| Spacing scale | **MVP-now documentation** | S | 4px base, 8px common rhythm, 16/24/32px section intervals. |
-| Motion rules and `prefers-reduced-motion` | **MVP-now** | S | Use subtle 120–200ms feedback only; do not delay interaction; existing shell already includes reduced-motion rules. |
+| Color tokens | **MVP-now; implemented in `src/index.css`** | S | Use `--color-*` tokens: forest `#244B3E`, deep forest `#19382F`, canvas `#F4F4EF`, paper `#FBFBF8`, ink `#242D2A`, muted text `#66716B`, and moss `#A4B99E`. Semantic success/warning/danger/info foreground and surface pairs are provided; preserve readable text and icon contrast. |
+| One font pairing | **MVP-now; implemented in `src/index.css`** | S | Use `--font-ui` (Aptos/Segoe UI system sans) for interface text, `--font-display` for headings, and `--font-editorial` (Georgia/Baskerville local stack) for restrained editorial accents. No external font dependency. |
+| Spacing scale | **MVP-now; implemented in `src/index.css`** | S | Use `--space-1` through `--space-16`: a 4px base, 8px common rhythm, and 16/24/32px section intervals. New feature CSS should use these tokens rather than inventing a parallel scale. |
+| Type, radius, elevation and motion tokens | **MVP-now; implemented in `src/index.css`** | S | Use `--text-*`, `--radius-*`, `--shadow-soft`, and `--motion-*`; interaction motion is 120–160ms and page arrival is capped at 180ms. Avoid adding tokens for one-off decoration without a reusable need. |
+| Motion rules and `prefers-reduced-motion` | **MVP-now** | S | Use brief feedback only; do not delay interaction. The shell uses shared motion tokens and retains its reduced-motion override. |
 | No multiple styling frameworks | **MVP-now rule** | S | Retain CSS and current conventions; do not add another framework. |
+
+**Design-system implementation note (2026-10-29):** `src/index.css` is the canonical source for palette, typography, spacing, type scale, radii, elevation, and motion tokens. Existing short color/font variable names remain as compatibility aliases for the Phase 1 shell. New page and feature styles should use the canonical tokens; add or change a token only when it represents a reusable product-wide decision. The page-arrival motion now uses the 180ms shared token, and the editorial font token uses the documented local Georgia/Baskerville stack. Reduced-motion behavior remains enforced globally in `src/App.css`.
 
 ### E. Future roadmap and tenancy
 
@@ -170,4 +173,3 @@ Defer public intake/CAPTCHA, CSV import/export, full admin console, round-robin,
 - Define conversion stage and duplicate owner disclosure before schema approval.
 - Measure `<2 seconds for list load with 10,000 leads` in a stated test environment; treat it as a target until measured.
 - Keep development/preview isolated from production. Owner authorizes paid resources and provider access.
-

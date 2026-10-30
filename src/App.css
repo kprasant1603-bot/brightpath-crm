@@ -129,9 +129,10 @@
   font-size: 13px;
   font-weight: 500;
   text-align: left;
+  text-decoration: none;
   transition:
-    background-color 160ms ease,
-    color 160ms ease;
+    background-color var(--motion-interaction) var(--motion-ease),
+    color var(--motion-interaction) var(--motion-ease);
 }
 
 .nav-link:hover {
@@ -267,7 +268,7 @@
   width: min(100%, 1170px);
   margin: 0 auto;
   padding: 43px 0 26px;
-  animation: page-arrive 260ms ease both;
+  animation: page-arrive var(--motion-page) var(--motion-ease) both;
 }
 
 .page-intro {
@@ -999,6 +1000,7 @@
     cursor: pointer;
     font-size: 8px;
     font-weight: 500;
+    text-decoration: none;
     -webkit-tap-highlight-color: transparent;
   }
 
