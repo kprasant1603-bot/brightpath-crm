@@ -8,13 +8,16 @@ The MVP is a focused CRM for a fictional coaching institute. Use fictional recor
 
 ## Current repository and Phase 1 baseline
 
+- Phase 0 preflight is complete. `plan.md` and `docs/spec-addendum.md` were created, approved, and committed separately.
+- Phase 1 shell is implemented and committed locally (`bf86fd8 Phase 1: foundation and visual shell`). Vercel preview is **NOT RUN**.
+- Open decisions blocking Phase 3 remain pending and must be answered before the schema phase.
 - React + Vite shell with branded Overview, Leads, Follow-ups, Reports, and Settings views, desktop sidebar, responsive mobile navigation, preview/empty states, and reduced-motion styling.
-- Navigation is currently local component state; there is no router, CRM data workflow, Supabase client, TypeScript app source/configuration, migration, or test runner.
-- `package.json` provides `npm run dev`, `npm run build`, `npm run lint`, and `npm run preview`. Dependencies are React/React DOM, Vite, and Oxlint.
+- Baseline hardening is in progress on `phase-2-baseline-hardening`: application sources are strict TypeScript/TSX with URL-backed routes; CRM data workflows, Supabase client, and migrations remain unimplemented.
+- `package.json` provides `npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run preview`. Router, TypeScript, and focused Vitest/Testing Library dependencies have been added.
 - No local `.env` was present during the name-only inspection. No secret values were read. Supabase/Vercel account setup is not verified.
 - `.gitignore` excludes `.env` and permits `.env.example`.
-- Git is on `main` with an `origin` remote. Phase 1 files are modified; `plan.md` and the master specification are untracked at inspection. Preserve all of them. Do not stage unrelated/untracked inputs or secrets.
-- Local Phase 1 lint/build/browser checks were recorded on 2026-10-29. They are historical and must be rerun before a commit or deployment. Vercel preview is NOT RUN.
+- Git is on `phase-2-baseline-hardening` with an `origin` remote; Phase 1 and planning commits are present. Current baseline-hardening changes are uncommitted and unstaged. The original and v2 master DOCX files are user-owned references; do not modify or commit them.
+- Local Phase 2 type-check, lint, test, build, and route/refresh/browser checks pass. GitHub Actions and Vercel preview are **NOT RUN**. No staging, commit, push, or deployment is authorized for this effort.
 
 Recheck `git status --short` before every phase. Do not read, print, or paste `.env` or other secrets; if needed, inspect only presence and required variable names.
 

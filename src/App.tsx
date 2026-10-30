@@ -1,13 +1,68 @@
-import { useState } from 'react'
+import type { ReactNode } from 'react'
+import {
+  Navigate,
+  NavLink,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom'
 import './App.css'
 
 const navigation = [
-  { id: 'overview', label: 'Overview', icon: 'grid', group: 'Workspace' },
-  { id: 'leads', label: 'Leads', icon: 'users', group: 'Workspace' },
-  { id: 'followups', label: 'Follow-ups', icon: 'calendar', group: 'Workspace' },
-  { id: 'reports', label: 'Reports', icon: 'chart', group: 'Insights' },
-  { id: 'settings', label: 'Settings', icon: 'settings', group: 'Insights' },
-]
+  {
+    id: 'overview',
+    label: 'Overview',
+    icon: 'grid',
+    group: 'Workspace',
+    path: '/',
+  },
+  {
+    id: 'leads',
+    label: 'Leads',
+    icon: 'users',
+    group: 'Workspace',
+    path: '/leads',
+  },
+  {
+    id: 'followups',
+    label: 'Follow-ups',
+    icon: 'calendar',
+    group: 'Workspace',
+    path: '/follow-ups',
+  },
+  {
+    id: 'reports',
+    label: 'Reports',
+    icon: 'chart',
+    group: 'Insights',
+    path: '/reports',
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: 'settings',
+    group: 'Insights',
+    path: '/settings',
+  },
+] as const
+
+type PageId = (typeof navigation)[number]['id']
+type IconName =
+  | 'grid'
+  | 'users'
+  | 'calendar'
+  | 'chart'
+  | 'settings'
+  | 'arrow'
+  | 'spark'
+  | 'clock'
+
+type PageDetails = {
+  eyebrow: string
+  title: string
+  description: string
+}
 
 const pageDetails = {
   overview: {
@@ -40,61 +95,65 @@ const pageDetails = {
     description:
       'Your profile and workspace preferences will live here as they become available.',
   },
+} satisfies Record<PageId, PageDetails>
+
+const iconPaths = {
+  grid: (
+    <>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+    </>
+  ),
+  users: (
+    <>
+      <path d="M16 20v-1.6a3.4 3.4 0 0 0-3.4-3.4H7.4A3.4 3.4 0 0 0 4 18.4V20" />
+      <circle cx="10" cy="7.5" r="3.5" />
+      <path d="M16 4.2a3.5 3.5 0 0 1 0 6.7M20 20v-1.6a3.4 3.4 0 0 0-2.5-3.3" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3.5" y="5" width="17" height="16" rx="2" />
+      <path d="M7.5 3v4M16.5 3v4M3.5 10h17M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01" />
+    </>
+  ),
+  chart: (
+    <>
+      <path d="M4 20.5h16M6.5 17v-5M12 17V5M17.5 17V9" />
+      <circle cx="6.5" cy="10" r="1" />
+      <circle cx="12" cy="3.5" r="1" />
+      <circle cx="17.5" cy="7.5" r="1" />
+    </>
+  ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" />
+    </>
+  ),
+  arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
+  spark: (
+    <>
+      <path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-2-5.8L4 11l6-2.2L12 3Z" />
+      <path d="m19 14 .9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14Z" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+} satisfies Record<IconName, ReactNode>
+
+type IconProps = {
+  name: IconName
+  className?: string
 }
 
-function Icon({ name, className = '' }) {
-  const paths = {
-    grid: (
-      <>
-        <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
-        <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
-        <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
-        <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
-      </>
-    ),
-    users: (
-      <>
-        <path d="M16 20v-1.6a3.4 3.4 0 0 0-3.4-3.4H7.4A3.4 3.4 0 0 0 4 18.4V20" />
-        <circle cx="10" cy="7.5" r="3.5" />
-        <path d="M16 4.2a3.5 3.5 0 0 1 0 6.7M20 20v-1.6a3.4 3.4 0 0 0-2.5-3.3" />
-      </>
-    ),
-    calendar: (
-      <>
-        <rect x="3.5" y="5" width="17" height="16" rx="2" />
-        <path d="M7.5 3v4M16.5 3v4M3.5 10h17M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01" />
-      </>
-    ),
-    chart: (
-      <>
-        <path d="M4 20.5h16M6.5 17v-5M12 17V5M17.5 17V9" />
-        <circle cx="6.5" cy="10" r="1" />
-        <circle cx="12" cy="3.5" r="1" />
-        <circle cx="17.5" cy="7.5" r="1" />
-      </>
-    ),
-    settings: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" />
-      </>
-    ),
-    arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
-    spark: (
-      <>
-        <path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-2-5.8L4 11l6-2.2L12 3Z" />
-        <path d="m19 14 .9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14Z" />
-      </>
-    ),
-    check: <path d="m5 12 4 4L19 6" />,
-    clock: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </>
-    ),
-  }
-
+function Icon({ name, className = '' }: IconProps) {
   return (
     <svg
       aria-hidden="true"
@@ -106,12 +165,16 @@ function Icon({ name, className = '' }) {
       strokeWidth="1.65"
       viewBox="0 0 24 24"
     >
-      {paths[name]}
+      {iconPaths[name]}
     </svg>
   )
 }
 
-function Brand({ compact = false }) {
+type BrandProps = {
+  compact?: boolean
+}
+
+function Brand({ compact = false }: BrandProps) {
   return (
     <div className={`brand${compact ? ' brand--compact' : ''}`}>
       <span className="brand__mark" aria-hidden="true">
@@ -127,7 +190,7 @@ function Brand({ compact = false }) {
   )
 }
 
-function Sidebar({ activePage, onNavigate }) {
+function Sidebar() {
   return (
     <aside className="sidebar" aria-label="Primary navigation">
       <div className="sidebar__top">
@@ -136,25 +199,33 @@ function Sidebar({ activePage, onNavigate }) {
       </div>
 
       <nav className="sidebar__nav" aria-label="Main menu">
-        {['Workspace', 'Insights'].map((group) => (
+        {(['Workspace', 'Insights'] as const).map((group) => (
           <div className="nav-group" key={group}>
             <p className="nav-group__label">{group}</p>
             {navigation
               .filter((item) => item.group === group)
               .map((item) => (
-                <button
-                  aria-current={activePage === item.id ? 'page' : undefined}
-                  className={`nav-link${activePage === item.id ? ' nav-link--active' : ''}`}
+                <NavLink
+                  className={({ isActive }) =>
+                    `nav-link${isActive ? ' nav-link--active' : ''}`
+                  }
+                  end={item.id === 'overview'}
                   key={item.id}
-                  onClick={() => onNavigate(item.id)}
-                  type="button"
+                  to={item.path}
                 >
-                  <Icon className="nav-link__icon" name={item.icon} />
-                  <span>{item.label}</span>
-                  {activePage === item.id && (
-                    <span className="nav-link__indicator" aria-hidden="true" />
+                  {({ isActive }) => (
+                    <>
+                      <Icon className="nav-link__icon" name={item.icon} />
+                      <span>{item.label}</span>
+                      {isActive && (
+                        <span
+                          className="nav-link__indicator"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </>
                   )}
-                </button>
+                </NavLink>
               ))}
           </div>
         ))}
@@ -176,20 +247,21 @@ function Sidebar({ activePage, onNavigate }) {
   )
 }
 
-function MobileNavigation({ activePage, onNavigate }) {
+function MobileNavigation() {
   return (
     <nav className="mobile-nav" aria-label="Mobile navigation">
       {navigation.map((item) => (
-        <button
-          aria-current={activePage === item.id ? 'page' : undefined}
-          className={`mobile-nav__item${activePage === item.id ? ' mobile-nav__item--active' : ''}`}
+        <NavLink
+          className={({ isActive }) =>
+            `mobile-nav__item${isActive ? ' mobile-nav__item--active' : ''}`
+          }
+          end={item.id === 'overview'}
           key={item.id}
-          onClick={() => onNavigate(item.id)}
-          type="button"
+          to={item.path}
         >
           <Icon name={item.icon} />
           <span>{item.label}</span>
-        </button>
+        </NavLink>
       ))}
     </nav>
   )
@@ -244,8 +316,14 @@ function JourneyCard() {
   )
 }
 
+type SetupStep = {
+  number: string
+  label: string
+  icon: IconName
+}
+
 function SetupCard() {
-  const steps = [
+  const steps: SetupStep[] = [
     { number: '01', label: 'Connect your workspace', icon: 'grid' },
     { number: '02', label: 'Set up your team', icon: 'users' },
     { number: '03', label: 'Welcome your first enquiry', icon: 'arrow' },
@@ -258,7 +336,9 @@ function SetupCard() {
           <span className="section-kicker">A FEW THOUGHTFUL STEPS</span>
           <h2 id="setup-title">Getting started</h2>
         </div>
-        <span className="setup-card__counter">01 <i>/</i> 03</span>
+        <span className="setup-card__counter">
+          01 <i>/</i> 03
+        </span>
       </div>
       <ol className="setup-list">
         {steps.map((step, index) => (
@@ -279,18 +359,26 @@ function SetupCard() {
   )
 }
 
-function EmptyFeature({ page }) {
-  const featureNames = {
-    leads: 'Your lead list will live here.',
-    followups: 'Your follow-up schedule will live here.',
-    reports: 'Your team insights will live here.',
-    settings: 'Your workspace preferences will live here.',
+type FeaturePageId = Exclude<PageId, 'overview'>
+
+const featureNames = {
+  leads: 'Your lead list will live here.',
+  followups: 'Your follow-up schedule will live here.',
+  reports: 'Your team insights will live here.',
+  settings: 'Your workspace preferences will live here.',
+} satisfies Record<FeaturePageId, string>
+
+function EmptyFeature({ page }: { page: FeaturePageId }) {
+  const navigationItem = navigation.find((item) => item.id === page)
+
+  if (!navigationItem) {
+    throw new Error(`Missing navigation entry for page "${page}".`)
   }
 
   return (
     <section className="feature-empty" aria-labelledby="feature-empty-title">
       <span className="feature-empty__icon">
-        <Icon name={navigation.find((item) => item.id === page)?.icon ?? 'grid'} />
+        <Icon name={navigationItem.icon} />
       </span>
       <span className="section-kicker">COMING INTO FOCUS</span>
       <h2 id="feature-empty-title">{featureNames[page]}</h2>
@@ -338,13 +426,52 @@ function OverviewPage() {
   )
 }
 
-function App() {
-  const [activePage, setActivePage] = useState('overview')
-  const page = pageDetails[activePage]
+const pageByPath: Record<string, PageId> = {
+  '/': 'overview',
+  '/leads': 'leads',
+  '/follow-ups': 'followups',
+  '/reports': 'reports',
+  '/settings': 'settings',
+}
+
+function PageView({ pageId }: { pageId: PageId }) {
+  const page = pageDetails[pageId]
+
+  return (
+    <>
+      <section className="page-intro">
+        <span className="section-kicker">{page.eyebrow}</span>
+        <h1>{page.title}</h1>
+        <p>{page.description}</p>
+      </section>
+
+      {pageId === 'overview' ? (
+        <OverviewPage />
+      ) : (
+        <>
+          <EmptyFeature page={pageId} />
+          <footer className="page-footer">
+            <span>BRIGHTPATH CRM</span>
+            <span>A clearer path, together.</span>
+          </footer>
+        </>
+      )}
+    </>
+  )
+}
+
+function AppLayout() {
+  const location = useLocation()
+  const activePage = pageByPath[location.pathname] ?? 'overview'
+  const activeNavigation = navigation.find((item) => item.id === activePage)
+
+  if (!activeNavigation) {
+    throw new Error(`Missing navigation entry for page "${activePage}".`)
+  }
 
   return (
     <div className="app-shell">
-      <Sidebar activePage={activePage} onNavigate={setActivePage} />
+      <Sidebar />
       <main className="main-panel">
         <header className="topbar">
           <div className="topbar__mobile-brand">
@@ -354,7 +481,7 @@ function App() {
             <span>Workspace</span>
             <span className="breadcrumb__slash">/</span>
             <span className="breadcrumb__current">
-              {navigation.find((item) => item.id === activePage)?.label}
+              {activeNavigation.label}
             </span>
           </div>
           <div className="topbar__status">
@@ -364,27 +491,26 @@ function App() {
         </header>
 
         <div className="page-content" key={activePage}>
-          <section className="page-intro">
-            <span className="section-kicker">{page.eyebrow}</span>
-            <h1>{page.title}</h1>
-            <p>{page.description}</p>
-          </section>
-
-          {activePage === 'overview' ? (
-            <OverviewPage />
-          ) : (
-            <>
-              <EmptyFeature page={activePage} />
-              <footer className="page-footer">
-                <span>BRIGHTPATH CRM</span>
-                <span>A clearer path, together.</span>
-              </footer>
-            </>
-          )}
+          <Outlet />
         </div>
       </main>
-      <MobileNavigation activePage={activePage} onNavigate={setActivePage} />
+      <MobileNavigation />
     </div>
+  )
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route element={<PageView pageId="overview" />} index />
+        <Route element={<PageView pageId="leads" />} path="leads" />
+        <Route element={<PageView pageId="followups" />} path="follow-ups" />
+        <Route element={<PageView pageId="reports" />} path="reports" />
+        <Route element={<PageView pageId="settings" />} path="settings" />
+      </Route>
+      <Route element={<Navigate replace to="/" />} path="*" />
+    </Routes>
   )
 }
 
