@@ -7,9 +7,12 @@ begin;
 --    validates that representation but does not infer a country code.
 -- 3. Email is trimmed and lower-cased in the database. Duplicate matching is
 --    exact on normalized phone OR normalized email, and includes archived leads.
---    Duplicate checks are limited to 20 calls per user in a one-minute window
---    that resets one minute after the first call; this is a conservative
---    initial abuse-control assumption for owner review.
+--    Duplicate checks are limited to 20 calls in the per-user minute window
+--    and 200 calls per UTC day. These conservative limits are initial product
+--    assumptions for owner review. Probing a known list of contacts remains an
+--    accepted residual risk, even with limits and metadata-only check logging.
+--    Every call by an active user is counted/logged, including invalid phone
+--    input; the log stores user ID and time only.
 -- 4. Lost reasons are fixed codes. The CHECK constraint requires a code for
 --    Lost; lost_note is optional. The code vocabulary is an initial product
 --    assumption and can be changed only through a reviewed additive migration.
@@ -26,9 +29,13 @@ begin;
 --    and admins can read the entire single-branch history.
 -- 10. Duplicate links are non-destructive, canonical pairs. Manager/admin
 --     access is provided only by the link RPC and manager/admin read policy.
--- 11. Auth users with lead references should be deactivated and reassigned,
+-- 11. Only managers/admins may archive or restore leads, through the protected
+--     archive RPC. Counsellors cannot access archived leads.
+-- 12. Duplicate-check logs contain only user ID and check time; contact values,
+--     hashes, match outcomes, and other lead data are deliberately not stored.
+-- 13. Auth users with lead references should be deactivated and reassigned,
 --     not hard-deleted; restrictive profile FKs preserve attribution.
--- 12. Public intake, CAPTCHA, CSV, tags, attachments/Storage, generic audit
+-- 14. Public intake, CAPTCHA, CSV, tags, attachments/Storage, generic audit
 --     logging, advanced interactions, and Tier C features are out of scope.
 
 create table public.profiles (
@@ -194,8 +201,16 @@ create table public.duplicate_links (
 
 create table public.lead_duplicate_check_windows (
   user_id uuid primary key references public.profiles (id) on delete cascade,
-  window_started_at timestamptz not null,
-  check_count integer not null check (check_count > 0)
+  minute_window_started_at timestamptz not null,
+  minute_check_count integer not null check (minute_check_count > 0),
+  daily_window_date date not null,
+  daily_check_count integer not null check (daily_check_count > 0)
+);
+
+create table public.lead_duplicate_check_log (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  checked_at timestamptz not null default now()
 );
 
 create index leads_created_by_created_at_idx
@@ -426,14 +441,21 @@ create function public.check_lead_duplicate(
   p_phone_e164 text,
   p_email text default null
 )
-returns table (has_match boolean, owner_name text, rate_limited boolean)
+returns table (
+  has_match boolean,
+  owner_name text,
+  rate_limited boolean,
+  invalid_input boolean
+)
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
   caller_id uuid := auth.uid();
-  current_check_count integer;
+  current_minute_count integer;
+  current_daily_count integer;
+  current_utc_date date := (pg_catalog.now() at time zone 'UTC')::date;
   normalized_email text := nullif(pg_catalog.lower(pg_catalog.btrim(p_email)), '');
   match_owner_name text;
 begin
@@ -442,33 +464,49 @@ begin
       using errcode = '42501';
   end if;
 
-  if p_phone_e164 is null
-    or p_phone_e164 !~ '^\+[1-9][0-9]{1,14}$' then
-    raise exception 'Phone input must already be normalized to E.164'
-      using errcode = '22023';
-  end if;
-
   insert into public.lead_duplicate_check_windows (
-    user_id, window_started_at, check_count
+    user_id,
+    minute_window_started_at,
+    minute_check_count,
+    daily_window_date,
+    daily_check_count
   )
-  values (caller_id, pg_catalog.now(), 1)
+  values (caller_id, pg_catalog.now(), 1, current_utc_date, 1)
   on conflict (user_id) do update
-  set window_started_at = case
-        when public.lead_duplicate_check_windows.window_started_at
+  set minute_window_started_at = case
+        when public.lead_duplicate_check_windows.minute_window_started_at
           <= pg_catalog.now() - interval '1 minute'
         then pg_catalog.now()
-        else public.lead_duplicate_check_windows.window_started_at
+        else public.lead_duplicate_check_windows.minute_window_started_at
       end,
-      check_count = case
-        when public.lead_duplicate_check_windows.window_started_at
+      minute_check_count = case
+        when public.lead_duplicate_check_windows.minute_window_started_at
           <= pg_catalog.now() - interval '1 minute'
         then 1
-        else public.lead_duplicate_check_windows.check_count + 1
+        else public.lead_duplicate_check_windows.minute_check_count + 1
+      end,
+      daily_window_date = current_utc_date,
+      daily_check_count = case
+        when public.lead_duplicate_check_windows.daily_window_date
+          <> current_utc_date
+        then 1
+        else public.lead_duplicate_check_windows.daily_check_count + 1
       end
-  returning check_count into current_check_count;
+  returning minute_check_count, daily_check_count
+  into current_minute_count, current_daily_count;
 
-  if current_check_count > 20 then
-    return query select null::boolean, null::text, true;
+  -- The log intentionally stores no input values, hashes, or match result.
+  insert into public.lead_duplicate_check_log (user_id)
+  values (caller_id);
+
+  if current_minute_count > 20 or current_daily_count > 200 then
+    return query select null::boolean, null::text, true, false;
+    return;
+  end if;
+
+  if p_phone_e164 is null
+    or p_phone_e164 !~ '^\+[1-9][0-9]{1,14}$' then
+    return query select null::boolean, null::text, false, true;
     return;
   end if;
 
@@ -490,11 +528,11 @@ begin
   limit 1;
 
   if not found then
-    return query select false, null::text, false;
-  elsif public.current_app_role() = 'counsellor' then
-    return query select true, null::text, false;
-  elsif public.current_app_role() in ('manager', 'admin') then
-    return query select true, match_owner_name, false;
+    return query select false, null::text, false, false;
+  elsif public.current_app_role() in ('counsellor', 'admin') then
+    return query select true, null::text, false, false;
+  elsif public.current_app_role() = 'manager' then
+    return query select true, match_owner_name, false, false;
   else
     raise exception 'Unsupported application role'
       using errcode = '42501';
@@ -591,6 +629,41 @@ begin
 end
 $$;
 
+create function public.set_lead_archived(
+  p_lead_id uuid,
+  p_archived boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_active_app_user()
+    or not public.is_manager_or_admin() then
+    raise exception 'Manager or admin role required'
+      using errcode = '42501';
+  end if;
+
+  if p_archived is null then
+    raise exception 'Archive state must be true or false'
+      using errcode = '22023';
+  end if;
+
+  update public.leads
+  set archived_at = case
+    when p_archived then coalesce(archived_at, pg_catalog.now())
+    else null
+  end
+  where id = p_lead_id;
+
+  if not found then
+    raise exception 'Lead not found'
+      using errcode = 'P0002';
+  end if;
+end
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.courses enable row level security;
 alter table public.lead_sources enable row level security;
@@ -602,6 +675,7 @@ alter table public.lead_status_history enable row level security;
 alter table public.lead_assignment_history enable row level security;
 alter table public.duplicate_links enable row level security;
 alter table public.lead_duplicate_check_windows enable row level security;
+alter table public.lead_duplicate_check_log enable row level security;
 
 create policy profiles_select_visible
   on public.profiles for select to authenticated
@@ -650,8 +724,10 @@ create policy leads_select_visible
     public.is_active_app_user()
     and (
       public.is_manager_or_admin()
-      or created_by = auth.uid()
-      or assigned_to = auth.uid()
+      or (
+        archived_at is null
+        and (created_by = auth.uid() or assigned_to = auth.uid())
+      )
     )
   );
 create policy leads_insert_counsellor_or_manager
@@ -670,16 +746,20 @@ create policy leads_update_visible
     public.is_active_app_user()
     and (
       public.is_manager_or_admin()
-      or created_by = auth.uid()
-      or assigned_to = auth.uid()
+      or (
+        archived_at is null
+        and (created_by = auth.uid() or assigned_to = auth.uid())
+      )
     )
   )
   with check (
     public.is_active_app_user()
     and (
       public.is_manager_or_admin()
-      or created_by = auth.uid()
-      or assigned_to = auth.uid()
+      or (
+        archived_at is null
+        and (created_by = auth.uid() or assigned_to = auth.uid())
+      )
     )
   );
 
@@ -761,7 +841,8 @@ revoke all on table
   public.lead_status_history,
   public.lead_assignment_history,
   public.duplicate_links,
-  public.lead_duplicate_check_windows
+  public.lead_duplicate_check_windows,
+  public.lead_duplicate_check_log
 from public, anon, authenticated;
 
 grant usage on schema public to authenticated;
@@ -803,8 +884,7 @@ grant update (
   utm_content,
   consent_given,
   consent_at,
-  consent_source,
-  archived_at
+  consent_source
 ) on public.leads to authenticated;
 
 grant select on public.follow_ups to authenticated;
@@ -837,6 +917,7 @@ revoke all on function public.update_follow_up_state()
 revoke all on function public.check_lead_duplicate(text, text) from public, anon;
 revoke all on function public.assign_lead(uuid, uuid) from public, anon;
 revoke all on function public.link_duplicate_leads(uuid, uuid) from public, anon;
+revoke all on function public.set_lead_archived(uuid, boolean) from public, anon;
 
 grant execute on function public.current_app_role() to authenticated;
 grant execute on function public.is_active_app_user() to authenticated;
@@ -844,6 +925,7 @@ grant execute on function public.is_manager_or_admin() to authenticated;
 grant execute on function public.check_lead_duplicate(text, text) to authenticated;
 grant execute on function public.assign_lead(uuid, uuid) to authenticated;
 grant execute on function public.link_duplicate_leads(uuid, uuid) to authenticated;
+grant execute on function public.set_lead_archived(uuid, boolean) to authenticated;
 
 comment on table public.profiles is
   'Auth-linked profile; client roles and active state are not user-editable.';
@@ -865,11 +947,15 @@ comment on column public.profiles.is_active is
   'No authenticated UPDATE grant; trigger rejects authenticated active-state changes.';
 comment on table public.lead_duplicate_check_windows is
   'Private SECURITY DEFINER rate-limit state; no client table access.';
+comment on table public.lead_duplicate_check_log is
+  'Metadata-only duplicate check log: user and time only; no contact values, hashes, or match outcomes.';
 comment on function public.check_lead_duplicate(text, text) is
-  'Exact normalized phone/email lookup including archived leads; counsellors receive existence only; returns rate-limit state.';
+  'Exact normalized phone/email lookup including archived leads; counsellors receive existence only; returns rate-limit and invalid-input states.';
 comment on function public.assign_lead(uuid, uuid) is
   'Manager/admin-only assignment to an active counsellor; assignment history is recorded by trigger.';
 comment on function public.link_duplicate_leads(uuid, uuid) is
   'Manager/admin-only idempotent non-destructive link; does not merge or delete leads.';
+comment on function public.set_lead_archived(uuid, boolean) is
+  'Manager/admin-only archive and restore operation; counsellors cannot access archived leads.';
 
 commit;
