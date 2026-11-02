@@ -962,8 +962,8 @@ where id = '40000000-0000-4000-8000-000000000002';
 delete from public.lead_sources
 where id = '40000000-0000-4000-8000-000000000002';
 
-insert into public.leads (full_name, phone_e164, stage_code)
-values ('Fictional Manager CRUD Lead', '+919876549996', 'new');
+insert into public.leads (full_name, phone_e164)
+values ('Fictional Manager CRUD Lead', '+919876549996');
 update public.leads
 set full_name = 'Fictional Manager CRUD Lead Updated'
 where phone_e164 = '+919876549996';
@@ -1067,8 +1067,8 @@ where id = '40000000-0000-4000-8000-000000000003';
 delete from public.lead_sources
 where id = '40000000-0000-4000-8000-000000000003';
 
-insert into public.leads (full_name, phone_e164, stage_code)
-values ('Fictional Admin CRUD Lead', '+919876549994', 'new');
+insert into public.leads (full_name, phone_e164)
+values ('Fictional Admin CRUD Lead', '+919876549994');
 update public.leads
 set full_name = 'Fictional Admin CRUD Lead Updated'
 where phone_e164 = '+919876549994';
