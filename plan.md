@@ -10,14 +10,18 @@ The MVP is a focused CRM for a fictional coaching institute. Use fictional recor
 
 - Phase 0 preflight is complete. `plan.md` and `docs/spec-addendum.md` were created, approved, and committed separately.
 - Phase 1 shell is implemented and committed locally (`bf86fd8 Phase 1: foundation and visual shell`). The Phase 1/2 Vercel preview was manually retested by the user on 2026-10-30; desktop landing/navigation, repeated route refreshes, browser Back/Forward, and mobile fit/usability were reported **PASS**. No 404s or errors were reported.
-- Open decisions blocking Phase 3 remain pending and must be answered before the schema phase.
+- Phase 3 product decisions are resolved as recorded in **Decisions resolved before Phase 3 migration** below.
 - React + Vite shell with branded Overview, Leads, Follow-ups, Reports, and Settings views, desktop sidebar, responsive mobile navigation, preview/empty states, and reduced-motion styling.
-- Baseline hardening is in progress on `phase-2-baseline-hardening`: application sources are strict TypeScript/TSX with URL-backed routes; CRM data workflows, Supabase client, and migrations remain unimplemented.
+- Baseline hardening is in progress on `phase-2-baseline-hardening`: application sources are strict TypeScript/TSX with URL-backed routes; CRM UI data workflows and Supabase client remain unimplemented. Phase 3 migration was manually applied to the `brightpath-crm-dev` project on 2026-11-02.
 - `package.json` provides `npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run preview`. Router, TypeScript, and focused Vitest/Testing Library dependencies have been added.
-- No local `.env` was present during the name-only inspection. No secret values were read. Supabase/Vercel account setup is not verified.
+- No local `.env` was present during the prior name-only inspection. No secret values were read. A development Supabase project exists; production Supabase is not created.
 - `.gitignore` excludes `.env` and permits `.env.example`.
 - Git is on `phase-2-baseline-hardening` with an `origin` remote; Phase 1 and planning commits are present. Current baseline-hardening changes are uncommitted and unstaged. The original and v2 master DOCX files are user-owned references; do not modify or commit them.
 - Local Phase 2 type-check, lint, test, build, and route/refresh/browser checks pass. GitHub CI was reported by the user as **PASS** (completed in 13 seconds). Live preview verification is user-reported as above; keyboard navigation, 320px width, reduced-motion behavior on the live URL, and other unreported checks remain unverified. No staging, commit, push, or deployment is authorized for this effort.
+- Phase 3 status (user-confirmed, 2026-11-02): the migration was applied manually in the `brightpath-crm-dev` Supabase SQL Editor; 12 tables were created, RLS is enabled on all 12, and `anon` has no table privileges and cannot execute any migration function. The Supabase Security Advisor reported 0 errors, 9 warnings, and 2 info suggestions not yet reviewed. The warnings include signed-in execution of SECURITY DEFINER functions as designed and Supabase-provided `rls_auto_enable`, which is not part of this migration and must be reviewed before production.
+- The user-confirmed `supabase/tests/phase3_tier_a_rls.sql` run completed without error after removing `stage_code` from the manager/admin insert tests; the transaction rolled back and the user verified no fixture data remained.
+- Not tested: UI paths, a local Docker-based test run, and production Supabase (project not created). Do not infer further passing checks.
+- Known residual risks: staff probing for known duplicate phone/email values is accepted; the `rls_auto_enable` Security Advisor warning remains to be reviewed before production; free-tier Supabase projects may pause after inactivity.
 
 Recheck `git status --short` before every phase. Do not read, print, or paste `.env` or other secrets; if needed, inspect only presence and required variable names.
 
@@ -33,15 +37,15 @@ New users default to the least-privileged counsellor role. Users may not promote
 
 ### Proposed lead workflow
 
-Stages proposed by the addendum: `New`, `Contacted`, `Counselling/Demo Done`, `Campus Visit`, `Applied`, `Enrolled`, `Lost`. This replaces the master prompt’s simpler `Qualified`/`Converted` model, subject to owner decision before migration. Lost requires `lost_reason`; entering Enrolled records `enrolled_at`. Preserve every transition in `lead_status_history`.
+Stages proposed by the addendum: `New`, `Contacted`, `Counselling/Demo Done`, `Campus Visit`, `Applied`, `Enrolled`, `Lost`. `Enrolled` replaces `Converted`. Lost requires `lost_reason`; entering Enrolled records `enrolled_at`. Preserve every transition in `lead_status_history`.
 
-Normalize phone to E.164 and email to lowercase for duplicate detection. Validate required name/phone, optional email, trim inputs, use lookup tables for course/source if approved, and prefer `archived_at` over destructive deletion.
+Normalize phone to E.164 and email to lowercase for duplicate detection. Default phone entry to India (+91), while allowing another country code. Validate required name/phone, optional email, trim inputs, use lookup tables for course/source if approved, and prefer `archived_at` over destructive deletion.
 
 ### KPI definitions
 
 - Total leads: leads accessible under the current user’s RLS scope.
 - New leads: accessible leads at `New`.
-- Enrolled leads/conversion: pending decision on whether `Enrolled` replaces `Converted`; denominator is accessible leads, with zero handled safely.
+- Enrolled leads/conversion: count accessible leads at `Enrolled` divided by accessible leads, with zero handled safely.
 - Overdue: accessible follow-ups whose state is pending and `due_at` is before current time.
 - Dashboard totals reconcile against the same accessible list/query definitions; never show invented values as live.
 
@@ -81,8 +85,8 @@ All addendum schema decisions must be designed and reviewed in Phase 3 before ap
 - Lead stage constraints, normalized contact values, `lost_reason`, `enrolled_at`, `archived_at`, consent/campaign/UTM and selected student/guardian/contact/priority/tag fields.
 - `lead_status_history`, `lead_assignment_history`, courses/sources lookup tables, lead notes, typed interactions and outcomes, follow-up outcomes/rescheduling, audit records, tags/link table, `is_active`, `updated_at` triggers, useful foreign keys and indexes.
 - Search/pagination indexing; attachments metadata and Storage bucket/policies only if that requirement remains approved.
-- Duplicate check/link behavior, function grants, fixed safe `search_path`, and minimal returned data. The addendum requests matching existence plus owner name; disclose owner identity only if explicitly approved after privacy/security review.
-- Organization/branch identifiers only if multi-branch is confirmed. Do not add them speculatively.
+- Duplicate check/link behavior, function grants, fixed safe `search_path`, and minimal returned data. Counsellors receive existence-only ("a possible duplicate exists, ask your manager"); owner identity is manager-only.
+- This is a single-branch design. Do not add `organization_id` or `branch_id`.
 
 Tables/columns for later features may be provisioned in the initial reviewed migration, but their UI and workflows remain disabled until their feature phase. Every provisioned object needs a documented reason. The schema must use UUIDs, `timestamptz`, explicit constraints/FKs/delete behavior, and useful indexes.
 
@@ -132,15 +136,13 @@ The loop is gated by authorization for GitHub/Vercel/Supabase actions. Do not si
 
 The recommended two-day workshop MVP is: Auth, core lead pipeline/Kanban, duplicate warning and manager link, basic assignment, follow-ups/activity, role-scoped dashboard, RLS, and one verified deployment. Defer public intake/CAPTCHA, CSV, full admin console, round-robin, rich lead data, advanced interaction/follow-up/reporting, attachments, and integrations. Full line-by-line triage with effort and rationale is in [docs/spec-addendum.md](./docs/spec-addendum.md).
 
-## Decisions required before Phase 3 migration
+## Decisions resolved before Phase 3 migration
 
-Plan approval does not answer these product decisions:
-
-1. Is first release definitively single-branch? Recommendation: omit `organization_id`/`branch_id` unless multi-branch is likely now.
-2. Should `Enrolled` replace `Converted` as terminal stage and conversion definition? Recommendation: yes.
-3. What default country should guide phone entry/E.164 normalization, or should country code always be explicit?
-4. May counsellors see matching lead owner name in duplicate warnings, or should identity be manager-only? Recommendation: counsellors get existence-only; manager may see owner.
-5. Is public enquiry/CAPTCHA required for the two-day MVP? Recommendation: defer until authenticated lead workflows are complete.
+1. **Branch scope:** single branch; omit `organization_id` and `branch_id`.
+2. **Terminal stage and conversion metric:** use `Enrolled` instead of `Converted`; conversion rate is Enrolled divided by accessible leads.
+3. **Phone normalization:** default to India (+91), with an option to enter another country code; normalize to E.164.
+4. **Duplicate disclosure:** counsellors receive only an existence response ("a possible duplicate exists, ask your manager"); only managers may see owner identity.
+5. **Public intake:** defer public intake and CAPTCHA.
 
 ## Planned commands and setup
 
@@ -158,7 +160,7 @@ After their dependencies/scripts are approved, expected checks may include `npm 
 
 ## Risks and safeguards
 
-- A SECURITY DEFINER duplicate lookup can disclose cross-owner records or become an enumeration oracle. Fixed `search_path`, minimum grants, auth checks, minimal response, rate/abuse controls, and direct RPC tests are release gates. Owner name is sensitive and requires a decision.
+- A SECURITY DEFINER duplicate lookup can disclose cross-owner match existence or become an enumeration oracle. Fixed `search_path`, minimum grants, auth checks, role-specific minimal responses (existence-only for counsellors; owner identity for managers), rate/abuse controls, and direct RPC tests are release gates. Probing a known list of phone numbers/emails remains an accepted residual risk despite rate limits and metadata-only check logging.
 - Packing every addendum structure into Phase 3 increases initial migration and review complexity; document purpose of each object and keep later feature behavior disabled.
 - Stage semantics alter KPI definitions; resolve Enrolled vs Converted before migration.
 - Student/guardian details, consent, notes, attachments, retention and deletion expand privacy risk. Minimize PII, use fictional workshop data, and seek qualified DPDP Act 2023/legal review before real-data production.
