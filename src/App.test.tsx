@@ -1,8 +1,30 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import type { ReactNode } from 'react'
 import App from './App'
+
+const authMock = vi.hoisted(() => ({
+  state: {
+    status: 'ready',
+    profile: {
+      display_name: 'Fictional Test Admin',
+      role: 'admin',
+    },
+    user: { id: 'fictional-admin-id', email: 'phase3-admin@example.test' },
+  },
+  signIn: vi.fn(async () => true),
+  signOut: vi.fn(async () => true),
+}))
+
+vi.mock('./features/auth/authContext', () => ({
+  useAuth: () => authMock,
+}))
+
+vi.mock('./features/auth/AuthProvider', () => ({
+  AuthProvider: ({ children }: { children: ReactNode }) => children,
+}))
 
 function renderApp(initialPath = '/') {
   return render(
@@ -23,6 +45,8 @@ describe('application routes', () => {
         name: 'A better rhythm for every enquiry.',
       }),
     ).toBeInTheDocument()
+    expect(screen.getByText('phase3-admin@example.test')).toBeInTheDocument()
+    expect(screen.getByText('Admin')).toBeInTheDocument()
 
     const mainNavigation = within(
       screen.getByRole('navigation', { name: 'Main menu' }),
