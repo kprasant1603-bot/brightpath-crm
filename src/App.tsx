@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   Navigate,
   NavLink,
@@ -8,6 +8,9 @@ import {
   useLocation,
 } from 'react-router-dom'
 import './App.css'
+import { AuthGate } from './features/auth/AuthGate'
+import { AuthProvider } from './features/auth/AuthProvider'
+import { useAuth } from './features/auth/authContext'
 
 const navigation = [
   {
@@ -462,11 +465,25 @@ function PageView({ pageId }: { pageId: PageId }) {
 
 function AppLayout() {
   const location = useLocation()
+  const { state, signOut } = useAuth()
+  const [signOutFailed, setSignOutFailed] = useState(false)
   const activePage = pageByPath[location.pathname] ?? 'overview'
   const activeNavigation = navigation.find((item) => item.id === activePage)
 
+  if (state.status !== 'ready') {
+    throw new Error('Authenticated routes require a verified active profile.')
+  }
+
   if (!activeNavigation) {
     throw new Error(`Missing navigation entry for page "${activePage}".`)
+  }
+
+  async function handleSignOut() {
+    try {
+      setSignOutFailed(!(await signOut()))
+    } catch {
+      setSignOutFailed(true)
+    }
   }
 
   return (
@@ -484,12 +501,32 @@ function AppLayout() {
               {activeNavigation.label}
             </span>
           </div>
-          <div className="topbar__status">
-            <span className="status-dot" />
-            <span>PREVIEW MODE</span>
+          <div className="topbar__account">
+            <div className="topbar__identity">
+              <span>{state.user.email}</span>
+              <span>
+                {state.profile.role === 'admin'
+                  ? 'Admin'
+                  : state.profile.role === 'manager'
+                    ? 'Manager'
+                    : 'Counsellor'}
+              </span>
+            </div>
+            <button
+              className="topbar__sign-out"
+              onClick={handleSignOut}
+              type="button"
+            >
+              Sign out
+            </button>
           </div>
         </header>
 
+        {signOutFailed && (
+          <p className="auth-inline-error" role="alert">
+            Sign-out failed. Try again.
+          </p>
+        )}
         <div className="page-content" key={activePage}>
           <Outlet />
         </div>
@@ -501,16 +538,20 @@ function AppLayout() {
 
 function App() {
   return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route element={<PageView pageId="overview" />} index />
-        <Route element={<PageView pageId="leads" />} path="leads" />
-        <Route element={<PageView pageId="followups" />} path="follow-ups" />
-        <Route element={<PageView pageId="reports" />} path="reports" />
-        <Route element={<PageView pageId="settings" />} path="settings" />
-      </Route>
-      <Route element={<Navigate replace to="/" />} path="*" />
-    </Routes>
+    <AuthProvider>
+      <AuthGate>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route element={<PageView pageId="overview" />} index />
+            <Route element={<PageView pageId="leads" />} path="leads" />
+            <Route element={<PageView pageId="followups" />} path="follow-ups" />
+            <Route element={<PageView pageId="reports" />} path="reports" />
+            <Route element={<PageView pageId="settings" />} path="settings" />
+          </Route>
+          <Route element={<Navigate replace to="/" />} path="*" />
+        </Routes>
+      </AuthGate>
+    </AuthProvider>
   )
 }
 
