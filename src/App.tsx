@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { lazy, Suspense, useState, type ReactNode } from 'react'
 import {
   Navigate,
   NavLink,
@@ -11,6 +11,12 @@ import './App.css'
 import { AuthGate } from './features/auth/AuthGate'
 import { AuthProvider } from './features/auth/AuthProvider'
 import { useAuth } from './features/auth/authContext'
+
+const LeadsPage = lazy(() =>
+  import('./features/leads/LeadsPage').then((module) => ({
+    default: module.LeadsPage,
+  })),
+)
 
 const navigation = [
   {
@@ -438,6 +444,7 @@ const pageByPath: Record<string, PageId> = {
 }
 
 function PageView({ pageId }: { pageId: PageId }) {
+  const { state } = useAuth()
   const page = pageDetails[pageId]
 
   return (
@@ -450,6 +457,18 @@ function PageView({ pageId }: { pageId: PageId }) {
 
       {pageId === 'overview' ? (
         <OverviewPage />
+      ) : pageId === 'leads' ? (
+        state.status === 'ready' ? (
+          <Suspense
+            fallback={
+              <p className="lead-list-message" role="status">
+                Loading leads…
+              </p>
+            }
+          >
+            <LeadsPage role={state.profile.role as 'admin' | 'manager' | 'counsellor'} />
+          </Suspense>
+        ) : null
       ) : (
         <>
           <EmptyFeature page={pageId} />
