@@ -60,6 +60,10 @@ describe('fetchLeadPage', () => {
 
     expect(queryMocks.range).toHaveBeenCalledWith(0, 24)
     expect(queryMocks.select).toHaveBeenCalledWith('*', { count: 'exact' })
+    expect(queryMocks.order.mock.calls).toEqual([
+      ['created_at', { ascending: false }],
+      ['id', { ascending: false }],
+    ])
   })
 
   it('caps the requested page size at 100 and applies filters server-side', async () => {

@@ -426,13 +426,19 @@ function LeadRow({
     <tr>
       <td>
         <strong>{lead.full_name}</strong>
-        <span className="lead-table-secondary">{lead.email || lead.phone_e164}</span>
+        {lead.email && <span className="lead-table-secondary">{lead.email}</span>}
       </td>
       <td>{stageLabels[lead.stage_code as LeadStage] ?? lead.stage_code}</td>
       <td>{lead.phone_e164}</td>
       <td>{lookups.courses.find((item) => item.id === lead.course_id)?.name ?? '—'}</td>
       <td>{lookups.sources.find((item) => item.id === lead.source_id)?.name ?? '—'}</td>
-      <td>{new Date(lead.created_at).toLocaleDateString()}</td>
+      <td>
+        {new Intl.DateTimeFormat('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }).format(new Date(lead.created_at))}
+      </td>
       <td className="lead-row-actions">
         <button className="lead-text-button" onClick={onEdit} type="button">
           Edit
@@ -557,7 +563,6 @@ export function LeadsPage({ role }: { role: AppRole }) {
     <section className="leads-feature" aria-labelledby="leads-title">
       <div className="leads-heading">
         <div>
-          <span className="section-kicker">RELATIONSHIPS</span>
           <h2 id="leads-title">Leads</h2>
           <p>Every enquiry, kept in view and moving forward.</p>
         </div>

@@ -105,6 +105,7 @@ export async function fetchLeadPage(filters: LeadListFilters): Promise<LeadPage>
     .from('leads')
     .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
 
   if (!filters.includeArchived) {
     query = query.is('archived_at', null)
