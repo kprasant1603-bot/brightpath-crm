@@ -23,9 +23,14 @@ The MVP is a focused CRM for a fictional coaching institute. Use fictional recor
 - Phase 4 was merged to `main` via PR #3. It provides the public-key-only Supabase client, sign-in/sign-out, persisted sessions, and a profile gate that denies access for missing, inactive, or invalid-role profiles; the header shows the session email and role.
 - Phase 4 status (user-confirmed): sign-in was verified locally and on the Vercel preview for admin, manager, and counsellor test accounts on the development project. An incorrect password returned only the generic sign-in message; the Supabase auth log showed HTTP 400, not a key error. `/leads` direct load and refresh passed on the preview for all three roles.
 - Test-user note: recreating a test user resets its role to counsellor. Re-apply the role using the bootstrap SQL and verify it with the profiles query before each test round.
-- Production Vercel currently uses the development Supabase project. Disable open sign-ups in Supabase — **PENDING** (not yet done by the user). A separate production Supabase project remains to be created in Phase 10.
+- Production Vercel currently uses the development Supabase project. Disabling open sign-ups in Supabase is **PENDING** (not yet done by the user). A separate production Supabase project remains to be created in Phase 10.
 - Production URL sign-in: NOT RUN.
-- Not tested: lead/follow-up data features, admin invitation or role-management UI, a separate production Supabase project, and email-based flows. Do not infer other passing results.
+- Phase 5 was merged to `main` via PR #5. It includes a lead list with server-side pagination (default 25, maximum 100) and stable ordering by `created_at` then `id`; search; Source, Course and Stage filters; manager/admin-only assignee and Include archived controls; create/edit; stage changes with Lost reason; archive/restore through the existing RPC; and duplicate warnings (existence-only for counsellors/admins, owner name for managers).
+- Phase 5 manual testing on the development project (user-confirmed): counsellor and manager lead visibility (counsellor sees only own leads), search, filters, create, duplicate warning, edit, Lost reason, pagination, and refresh. Admin Leads page load and correct controls were verified. On the Vercel preview, manager sign-in and Source/Course filtering were verified.
+- Fictional seed leads, 60 bulk leads, and lookup rows (4 courses, 5 sources) were added in the development database only.
+- Phase 5 NOT RUN: admin duplicate warning/edit/archive; archive/restore for any role; counsellor and admin on the preview; Kanban; duplicate linking; assignment UI; CSV import/export.
+- Known Phase 5 polish item: the duplicate "RELATIONSHIPS" heading on the Leads page is still present.
+- Not tested: follow-up data features, admin invitation or role-management UI, a separate production Supabase project, and email-based flows. Do not infer other passing results.
 - Known residual risks: staff probing for known duplicate phone/email values is accepted; the `rls_auto_enable` Security Advisor warning remains to be reviewed before production; free-tier Supabase projects may pause after inactivity.
 
 Recheck `git status --short` before every phase. Do not read, print, or paste `.env` or other secrets; if needed, inspect only presence and required variable names.
