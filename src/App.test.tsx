@@ -26,6 +26,10 @@ vi.mock('./features/auth/AuthProvider', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => children,
 }))
 
+vi.mock('./features/leads/LeadsPage', () => ({
+  LeadsPage: () => <h2>Fictional lead management test view</h2>,
+}))
+
 function renderApp(initialPath = '/') {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
